@@ -1,0 +1,22 @@
+{
+  "name": "@rcarls/playwright-docker-runner",
+  "version": "0.1.0",
+  "description": "Run browser test commands in a version-matched Playwright Docker image",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=22.14.0" },
+  "bin": { "pw-docker": "./src/cli.mjs" },
+  "exports": {
+    ".": { "types": "./src/index.d.ts", "default": "./src/index.mjs" }
+  },
+  "files": ["src/", "README.md", "LICENSE"],
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "pack:check": "npm pack --dry-run --json"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/richardcarls/playwright-docker-runner.git"
+  },
+  "publishConfig": { "access": "public" }
+}

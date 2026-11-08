@@ -1,0 +1,19 @@
+{
+  "name": "fixture-lit-open-wc",
+  "private": true,
+  "type": "module",
+  "packageManager": "yarn@4.16.0",
+  "scripts": {
+    "test:browser": "web-test-runner --files test/*.test.mjs"
+  },
+  "devDependencies": {
+    "@open-wc/testing": "4.0.0",
+    "@web/test-runner": "0.20.2",
+    "@web/test-runner-playwright": "0.11.1",
+    "lit": "3.3.2",
+    "playwright": "1.58.2"
+  },
+  "resolutions": {
+    "playwright": "1.58.2"
+  }
+}

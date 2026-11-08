@@ -1,0 +1,21 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install --global corepack && corepack enable
+      - run: npm test
+      - run: npm run pack:check
+      - run: node test/run-fixtures.mjs
+      - run: echo "Publication requires a later approved npm release and trusted publisher setup."
