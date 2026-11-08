@@ -18,4 +18,5 @@ jobs:
       - run: npm test
       - run: npm run pack:check
       - run: node test/run-fixtures.mjs
+      - run: node test/run-trusted-ca.mjs
       - run: echo "Publication requires a later approved npm release and trusted publisher setup."

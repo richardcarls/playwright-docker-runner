@@ -13,6 +13,7 @@ import {
   playwrightVersion,
   workspaceDirectories,
 } from '../src/index.mjs';
+import { CA_CERT_PATH, FIREFOX_POLICY_PATH, trustedImage } from '../src/trusted-ca.mjs';
 
 function fixture({ manager = 'npm', linker = 'node-modules', workspaces = [] } = {}) {
   const root = mkdtempSync(path.join(tmpdir(), 'pw-docker-test-'));
@@ -149,4 +150,30 @@ test('container validates the installed Playwright version and runs exact argume
   assert.match(CONTAINER_SCRIPT, /Playwright version mismatch/);
   assert.match(CONTAINER_SCRIPT, /exec "\$manager" run "\$@"/);
   assert.match(CONTAINER_SCRIPT, /exec "\$@"/);
+});
+
+test('trusted CA plans a derived image and strict browser trust configuration', () => {
+  const root = fixture();
+  const caCert = path.resolve('test/fixtures/test-ca.pem');
+  const result = plan(root, { config: { caCert } });
+
+  assert.match(result.image, /^pw-docker-ca:[a-f0-9]{20}$/);
+  assert.equal(result.trusted.source, caCert);
+  assert.equal(result.containerEnv.PW_DOCKER_CA_CERT, CA_CERT_PATH);
+  assert.equal(result.containerEnv.NODE_EXTRA_CA_CERTS, CA_CERT_PATH);
+  assert.equal(result.containerEnv.PLAYWRIGHT_FIREFOX_POLICIES_JSON, FIREFOX_POLICY_PATH);
+  assert.equal(result.containerEnv.NODE_TLS_REJECT_UNAUTHORIZED, undefined);
+  assert.match(CONTAINER_SCRIPT, /certutil -A/);
+  assert.notEqual(trustedImage(root, caCert, 'other-image').image, result.image);
+});
+
+test('CA option rejects private keys and server certificates', () => {
+  const root = fixture();
+  const file = path.join(root, 'bad-ca.pem');
+
+  writeFileSync(file, '-----BEGIN PRIVATE KEY-----\nunsafe\n-----END PRIVATE KEY-----');
+  assert.throws(() => trustedImage(root, file, 'image'), /public PEM CA certificate/);
+  writeFileSync(file, 'invalid PEM');
+  assert.throws(() => trustedImage(root, file, 'image'), /public PEM CA certificate/);
+  assert.throws(() => trustedImage(root, path.resolve('test/fixtures/test-server.pem'), 'image'), /must be a CA certificate/);
 });

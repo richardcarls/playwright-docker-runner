@@ -27,3 +27,4 @@ jobs:
           node-version: '24'
       - run: npm install --global corepack && corepack enable
       - run: node test/run-fixtures.mjs
+      - run: node test/run-trusted-ca.mjs

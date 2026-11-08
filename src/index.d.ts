@@ -7,6 +7,8 @@ export interface Mount {
 export interface RunnerConfig {
   installMode?: 'isolated' | 'host-pnp';
   image?: string;
+  /** Public PEM root CA certificate to trust in Node and all three browsers. */
+  caCert?: string;
   memory?: string;
   shmSize?: string;
   network?: string;
@@ -40,5 +42,5 @@ export function dockerPlan(options: {
   gid?: number;
   tty?: boolean;
   freshInstall?: boolean;
-}): { args: string[]; image: string; volumes: string[]; containerEnv: Record<string, string> };
+}): { args: string[]; image: string; volumes: string[]; containerEnv: Record<string, string>; trusted?: { image: string; baseImage: string; source: string } };
 export const CONTAINER_SCRIPT: string;
