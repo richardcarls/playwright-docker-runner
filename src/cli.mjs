@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { dockerPlan, loadConfig, packageManager, playwrightVersion } from './index.mjs';
+import { buildTrustedImage } from './trusted-ca.mjs';
 
 function usage() {
   console.log(`pw-docker run <package-script> [args...]
@@ -130,6 +131,7 @@ async function main() {
       packageManager: manager.name,
       playwrightVersion: version,
       image: plan.image,
+      caCert: plan.trusted?.source,
       installMode: config.installMode ?? 'isolated',
       dockerAvailable: daemon.status === 0,
       volumes: plan.volumes,
@@ -150,6 +152,10 @@ async function main() {
 
   if (daemon.status !== 0) {
     throw new Error('Docker daemon is unavailable; start Docker Desktop or the Docker service');
+  }
+
+  if (plan.trusted) {
+    buildTrustedImage(plan.trusted);
   }
 
   if (config.installMode === 'host-pnp') {

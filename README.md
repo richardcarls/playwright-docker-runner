@@ -62,6 +62,32 @@ root unless absolute. The default memory cap is 4 GB with swap disabled, and sha
 The runner passes the container's exit status through, and explains exit 137 as a likely memory
 limit hit. `doctor` reports configuration and Docker reachability without starting a container.
 
+### Trusted local HTTPS
+
+Set `caCert` to a public PEM root CA when tests use a local HTTPS server signed by mkcert or
+another private CA:
+
+```js
+export default {
+  caCert: '/absolute/path/to/mkcert/rootCA.pem',
+};
+```
+
+The runner builds and caches a derived Playwright image keyed by the base image and certificate.
+The CA option requires the default Ubuntu-based image or a compatible custom image.
+It installs the public CA in the system store, Node, Chromium's NSS database, and Playwright
+Firefox's certificate policy. WebKit uses the system store. HTTPS errors remain enabled, including
+for service worker registration. The first build downloads Ubuntu's `libnss3-tools` package;
+subsequent runs reuse the image. `caCert` must be a single CA certificate and must never contain
+the mkcert `rootCA-key.pem` private key.
+
+Generate the server certificate and its key on the host and make those files available to the
+test server inside the container. A Vite plugin that creates a fresh CA and calls `mkcert -install`
+at server startup will still fail under the container's nonroot user. Configure that server to
+read the already-generated leaf certificate and key instead. Keep the CA private key outside the
+container. `caCert` accepts a path relative to the project root or an absolute path; the public
+CA file is copied into the derived image, so it need not stay mounted while tests run.
+
 ### Yarn Plug'n'Play
 
 PnP's loader records paths to the host cache. On Linux or WSL, use `installMode: 'host-pnp'` to
@@ -91,8 +117,9 @@ is for trusted test code. Project scripts and install hooks run with access to t
 
 Automated Docker fixtures cover npm with Playwright Test/React, pnpm with Vitest Browser Mode/Vue,
 and Yarn with Web Test Runner/Open WC/Lit. The Linux PnP fixture covers Solid/Vitest. CI runs
-Docker fixtures on Linux. macOS and Windows path adapters have non-Docker tests, so actual Docker
-Desktop runs on those hosts remain provisional.
+Docker fixtures and strict local HTTPS checks in all three browsers on Linux. macOS and Windows
+path adapters have non-Docker tests, so actual Docker Desktop runs on those hosts remain
+provisional.
 
 ```sh
 npm test

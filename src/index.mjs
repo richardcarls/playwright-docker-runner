@@ -5,6 +5,8 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { CA_CERT_PATH, FIREFOX_POLICY_PATH, trustedImage } from './trusted-ca.mjs';
+
 export const DEFAULT_MEMORY = '4g';
 export const DEFAULT_SHM_SIZE = '1g';
 
@@ -156,7 +158,9 @@ export function forwardedEnv(hostEnv, names = []) {
 
 export function dockerPlan({ root, manager, version, command, args = [], config = {}, env = process.env, platform = process.platform, home = homedir(), uid, gid, tty = false, freshInstall = false }) {
   const installMode = config.installMode ?? 'isolated';
-  const image = config.image ?? `mcr.microsoft.com/playwright:v${version}-noble`;
+  const baseImage = config.image ?? `mcr.microsoft.com/playwright:v${version}-noble`;
+  const trusted = config.caCert ? trustedImage(root, config.caCert, baseImage) : undefined;
+  const image = trusted?.image ?? baseImage;
   const memory = config.memory ?? DEFAULT_MEMORY;
   const prefix = volumePrefix(root);
   const run = ['run', '--rm', '--init', '--memory', memory, '--memory-swap', memory, '--shm-size', config.shmSize ?? DEFAULT_SHM_SIZE];
@@ -244,6 +248,12 @@ export function dockerPlan({ root, manager, version, command, args = [], config 
     npm_config_cache: installMode === 'host-pnp' ? path.join(home, '.npm') : '/cache/npm',
   };
 
+  if (trusted) {
+    containerEnv.PW_DOCKER_CA_CERT = CA_CERT_PATH;
+    containerEnv.NODE_EXTRA_CA_CERTS = CA_CERT_PATH;
+    containerEnv.PLAYWRIGHT_FIREFOX_POLICIES_JSON = FIREFOX_POLICY_PATH;
+  }
+
   if (installMode === 'isolated') {
     containerEnv.PW_DOCKER_CACHE_KEY = cacheKey(root, manager, image, workspaceDirectories(root, manager.name));
     containerEnv.PW_DOCKER_FRESH = freshInstall ? '1' : '0';
@@ -255,12 +265,20 @@ export function dockerPlan({ root, manager, version, command, args = [], config 
 
   run.push('-w', workdir, image, 'bash', '-c', CONTAINER_SCRIPT, 'pw-docker', manager.name, installMode, command, ...args);
 
-  return { args: run, image, volumes, containerEnv };
+  return { args: run, image, volumes, containerEnv, trusted };
 }
 
 export const CONTAINER_SCRIPT = `set -eu
 manager="$1"; mode="$2"; action="$3"; shift 3
 mkdir -p "$HOME/bin" "$COREPACK_HOME"
+if [ -n "\${PW_DOCKER_CA_CERT:-}" ]; then
+  mkdir -p "$HOME/.pki/nssdb"
+  if [ ! -f "$HOME/.pki/nssdb/cert9.db" ]; then
+    certutil -N -d "sql:$HOME/.pki/nssdb" --empty-password
+  fi
+  certutil -D -d "sql:$HOME/.pki/nssdb" -n pw-docker-local >/dev/null 2>&1 || true
+  certutil -A -d "sql:$HOME/.pki/nssdb" -n pw-docker-local -t 'C,,' -i "$PW_DOCKER_CA_CERT"
+fi
 if [ "$manager" != npm ]; then
   corepack enable --install-directory "$HOME/bin" >/dev/null
   export PATH="$HOME/bin:$PATH"
